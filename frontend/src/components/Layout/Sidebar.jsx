@@ -58,8 +58,10 @@ const Sidebar = ({ open, drawerWidth }) => {
   ];
 
   const handleLogout = () => {
-    console.log('Logging out...');
-    navigate('/login');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('rememberMe');
+    navigate('/login', { replace: true });
   };
 
   return (
