@@ -61,8 +61,34 @@ const PlaceholderPage = ({ title }) => (
   </div>
 );
 
+// Protected Route wrapper
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 function App() {
-  const [isAuthenticated] = React.useState(true); // Set to false for login screen
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    return !!(localStorage.getItem('token') && localStorage.getItem('user'));
+  });
+
+  // Listen for storage changes (login/logout)
+  React.useEffect(() => {
+    const check = () => {
+      setIsAuthenticated(!!(localStorage.getItem('token') && localStorage.getItem('user')));
+    };
+    window.addEventListener('storage', check);
+    // Also poll for same-tab changes
+    const interval = setInterval(check, 500);
+    return () => {
+      window.removeEventListener('storage', check);
+      clearInterval(interval);
+    };
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -70,7 +96,7 @@ function App() {
         palette: {
           mode: 'dark',
           primary: { main: '#2196f3' },
-          background: { default: '#0a1929' },
+          background: { default: '#020b18' },
         },
       })}>
         <CssBaseline />
