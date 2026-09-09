@@ -153,6 +153,13 @@ function App() {
             <Route path="DataCollectionPage" element={<DataCollectionPage />} />
             <Route path="TorMetricsPage" element={<TorMetricsPage />} />
 
+            {/* Route Aliases to prevent 404 on varied path casings */}
+            <Route path="correlation" element={<Navigate to="/correlationPage" replace />} />
+            <Route path="encryption" element={<Navigate to="/EncryptionPage" replace />} />
+            <Route path="atwc" element={<Navigate to="/Atwcpage" replace />} />
+            <Route path="data-collection" element={<Navigate to="/DataCollectionPage" replace />} />
+            <Route path="tor-metrics" element={<Navigate to="/TorMetricsPage" replace />} />
+
             {/* Monitoring */}
             <Route path="nodes" element={<NodesPage />} />
             <Route path="traffic" element={<Traffic />} />

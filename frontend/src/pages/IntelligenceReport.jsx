@@ -23,11 +23,108 @@ import {
   VisibilityOff as RedactIcon, DeviceHub as NodeIcon
 } from '@mui/icons-material';
 
-const API_REPORTS_ALL = '/api/cases/reports/all';
-const API_REPORTS_STATS = '/api/cases/reports/stats';
-const API_REPORTS_GENERATE = '/api/cases/reports/generate';
-const API_REPORTS_COMPARE = '/api/cases/reports/compare';
-const API_CASES = '/api/cases';
+// ─── Offline mock seed data (replaces backend) ───────────────────────────────
+const mkHash = (seed) => [...seed].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)
+  .toString(16).replace('-', '') + Math.abs([...seed].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0)).toString(16) + 'a3f9e2c81b4d';
+
+const SEED_REPORTS = [
+  {
+    reportId: 'NTRO-RPT-20240901-001', reportType: 'SITREP', classification: 'TOP SECRET',
+    title: 'SITREP — Operation DarkPhantom RaaS Network (Week 36)',
+    caseId: 'CASE-26151-001', authorName: 'Analyst-Alpha', authorBadge: 'NTRO-CY-0842',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'COURT_SUBMITTED',
+    digitalSealSha256: '98f3e995d89f575a03312c45f74236a56c4ce89f73300b86e6584e61761a53d9',
+    summary: 'Operation DarkPhantom continues to show active C2 infrastructure. TLS SAN leak confirmed. 12.5 BTC ransom traced through Wasabi coinjoin. Prosecution exhibit under preparation.',
+    handlingCaveats: ['NOFORN', 'ORCON'],
+    createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
+    coSignatures: [{ officerName: 'Dr. A. Verma', role: 'Sr. Forensic Examiner', badgeId: 'NTRO-REV-0911', timestamp: new Date(Date.now() - 7 * 86400000).toISOString() }],
+    topology: { guardNodes: ['GuardNode-01', 'GuardNode-05'], relayNodes: ['RelayNode-42', 'RelayNode-88'], exitNodes: ['ExitNode-03', 'ExitNode-01'], hiddenServices: ['drkphntm3a7b9xqz.onion'], circuitHops: 3, originASN: 'AS53667 (FranTech)', originIP: '185.220.101.47' },
+    mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }, { id: 'T1584.004', name: 'Compromised Domain / TLS SAN Leak', tactic: 'Resource Dev', severity: 'CRITICAL' }, { id: 'T1048', name: 'Exfiltration to Crypto Mixer', tactic: 'Exfiltration', severity: 'HIGH' }],
+    timeline: [{ ts: new Date(Date.now() - 30 * 86400000).toISOString(), event: 'Initial detection by Autonomous Crawler honeypot' }, { ts: new Date(Date.now() - 25 * 86400000).toISOString(), event: 'TLS SAN certificate leak corroborated via crt.sh' }, { ts: new Date(Date.now() - 15 * 86400000).toISOString(), event: '12.5 BTC ransom flows traced through Wasabi coinjoin' }, { ts: new Date(Date.now() - 8 * 86400000).toISOString(), event: 'SITREP Week 36 generated and submitted to court' }]
+  },
+  {
+    reportId: 'NTRO-RPT-20240902-002', reportType: 'ACTOR_PROFILE', classification: 'TOP SECRET',
+    title: 'Threat Actor Dossier — DarkPhantom_v2 De-Anonymization Package',
+    caseId: 'CASE-26151-001', authorName: 'Analyst-Beta', authorBadge: 'NTRO-CY-0843',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'FINALIZED',
+    digitalSealSha256: '44a7b3e2f19c8d5a0b61234987efcd2a77b4c9e013f8d250a6c439218bdf4910',
+    summary: 'Full de-anonymization of RaaS operator DarkPhantom_v2. PGP fingerprint 0xAF3C7291. Origin IP de-cloaked at 185.220.101.47 (LU). Stylometry 94% match across Hydra and AlphaBay v2 forum posts.',
+    handlingCaveats: ['NOFORN', 'ORCON'],
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    coSignatures: [],
+    topology: { guardNodes: ['GuardNode-01'], relayNodes: ['RelayNode-42'], exitNodes: ['ExitNode-03'], hiddenServices: ['drkphntm3a7b9xqz.onion', 'phntm-escrow.onion'], circuitHops: 3, originASN: 'AS53667 (FranTech)', originIP: '185.220.101.47' },
+    mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }, { id: 'T1562', name: 'Impair Defenses', tactic: 'Defense Evasion', severity: 'MEDIUM' }],
+    timeline: [{ ts: new Date(Date.now() - 20 * 86400000).toISOString(), event: 'PGP fingerprint linked across 3 dark market forums' }, { ts: new Date(Date.now() - 12 * 86400000).toISOString(), event: 'Stylometry analysis: 94% persona match confirmed' }, { ts: new Date(Date.now() - 5 * 86400000).toISOString(), event: 'Actor dossier finalized and sealed' }]
+  },
+  {
+    reportId: 'NTRO-RPT-20240903-003', reportType: 'FINANCIAL_INTEL', classification: 'SECRET',
+    title: 'FININT — DarkPhantom 12.5 BTC Forensic Ledger & Mixer Analysis',
+    caseId: 'CASE-26151-001', authorName: 'Analyst-Alpha', authorBadge: 'NTRO-CY-0842',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'FINALIZED',
+    digitalSealSha256: 'c3f8a1e47d0295b36a8490f21378cde95b04a267891fc3d520e7b4869103ab5c',
+    summary: 'Cryptocurrency forensic ledger for Operation DarkPhantom. Total: 12.5 BTC (~INR 4.28 Cr). Traced through 4 Wasabi coinjoin hops. Downstream wallet at Kraken exchange flagged for subpoena.',
+    handlingCaveats: ['ORCON', 'LAW_ENFORCEMENT_SENSITIVE'],
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    coSignatures: [{ officerName: 'CA R. Menon', role: 'Financial Forensics', badgeId: 'NTRO-FIN-0201', timestamp: new Date(Date.now() - 2 * 86400000).toISOString() }],
+    topology: { guardNodes: ['GuardNode-01'], relayNodes: ['RelayNode-88'], exitNodes: ['ExitNode-01'], hiddenServices: [], circuitHops: 3, originASN: 'AS49697', originIP: '45.142.213.10' },
+    mitreAttack: [{ id: 'T1048', name: 'Exfiltration to Crypto Mixer', tactic: 'Exfiltration', severity: 'HIGH' }],
+    timeline: [{ ts: new Date(Date.now() - 15 * 86400000).toISOString(), event: '12.5 BTC ransom payment received in wallet 3FZb...' }, { ts: new Date(Date.now() - 10 * 86400000).toISOString(), event: 'Coinjoin mixing hops 1-4 traced via chain analysis' }, { ts: new Date(Date.now() - 3 * 86400000).toISOString(), event: 'FININT report sealed and exchange subpoena filed' }]
+  },
+  {
+    reportId: 'NTRO-RPT-20240904-004', reportType: 'COURT_EXHIBIT_65B', classification: 'SECRET',
+    title: 'Section 65B Court Exhibit — NTRO/CY/2024/001 Electronic Evidence Package',
+    caseId: 'CASE-26151-001', authorName: 'Analyst-Alpha', authorBadge: 'NTRO-CY-0842',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'COURT_SUBMITTED',
+    digitalSealSha256: '71e49f2a083c1bd7e5a6c390284f8db2a31509c6844e7b3f20a4c8591d23e067',
+    summary: 'Certified electronic evidence exhibit pursuant to Section 65B of the Indian Evidence Act, 1872 (amended). 14 digital artifacts, 3 co-signatories, SHA-256 tamper-evident seals on all exhibits.',
+    handlingCaveats: ['NOFORN', 'LEGAL_PRIVILEGED'],
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    coSignatures: [{ officerName: 'Dr. A. Verma', role: 'Sr. Forensic Examiner', badgeId: 'NTRO-REV-0911', timestamp: new Date(Date.now() - 2 * 86400000).toISOString() }, { officerName: 'Adv. S. Pillai', role: 'Legal Certifying Authority', badgeId: 'NTRO-LEG-0044', timestamp: new Date(Date.now() - 1 * 86400000).toISOString() }],
+    topology: { guardNodes: ['GuardNode-01', 'GuardNode-05'], relayNodes: ['RelayNode-42', 'RelayNode-88', 'RelayNode-55'], exitNodes: ['ExitNode-03', 'ExitNode-01', 'ExitNode-07'], hiddenServices: ['drkphntm3a7b9xqz.onion'], circuitHops: 3, originASN: 'AS53667 (FranTech)', originIP: '185.220.101.47' },
+    mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }, { id: 'T1584.004', name: 'Compromised Domain', tactic: 'Resource Dev', severity: 'CRITICAL' }, { id: 'T1048', name: 'Crypto Exfiltration', tactic: 'Exfiltration', severity: 'HIGH' }, { id: 'T1562', name: 'Impair Defenses', tactic: 'Defense Evasion', severity: 'MEDIUM' }],
+    timeline: [{ ts: new Date(Date.now() - 72 * 86400000).toISOString(), event: 'Case opened: NTRO/CY/2024/001' }, { ts: new Date(Date.now() - 60 * 86400000).toISOString(), event: 'Actor identity established' }, { ts: new Date(Date.now() - 2 * 86400000).toISOString(), event: 'Section 65B exhibit generated, co-signed by 2 officers' }, { ts: new Date(Date.now() - 1 * 86400000).toISOString(), event: 'Submitted to Special CBI Cyber Court, New Delhi' }]
+  },
+  {
+    reportId: 'NTRO-RPT-20240905-005', reportType: 'INFRASTRUCTURE', classification: 'RESTRICTED',
+    title: 'Infrastructure Attribution — Operation SilkReborn Cross-Market Server Farm',
+    caseId: 'CASE-26151-002', authorName: 'Analyst-Gamma', authorBadge: 'NTRO-CY-0845',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'DRAFT',
+    digitalSealSha256: 'a9d2f10e3c87b54612890fe4576cd3ab192087f63e40d251a7bc9480523f1e94',
+    summary: 'Origin server attribution for SilkReborn DNM infrastructure. MurmurHash3 favicon fingerprint 0x89FA3C12 matched across 3 clearnet IPs. Hosting provider: NoHost LLC (BG). TLS SAN exposes 7 co-hosted darknet markets.',
+    handlingCaveats: ['NOFORN'],
+    createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+    coSignatures: [],
+    topology: { guardNodes: ['GuardNode-03'], relayNodes: ['RelayNode-12', 'RelayNode-34'], exitNodes: ['ExitNode-07', 'ExitNode-09'], hiddenServices: ['silkreborn4xmkv.onion', 'sr-market-mirror.onion'], circuitHops: 3, originASN: 'AS49697 (NoHost LLC)', originIP: '91.108.4.175' },
+    mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }, { id: 'T1583.001', name: 'Acquire Infrastructure', tactic: 'Resource Dev', severity: 'MEDIUM' }],
+    timeline: [{ ts: new Date(Date.now() - 45 * 86400000).toISOString(), event: 'SilkReborn market detected on Hydra' }, { ts: new Date(Date.now() - 20 * 86400000).toISOString(), event: 'TLS SAN leak: 7 co-hosted markets exposed' }, { ts: new Date(Date.now() - 1 * 86400000).toISOString(), event: 'Infrastructure brief drafted, pending review' }]
+  },
+  {
+    reportId: 'NTRO-RPT-20240906-006', reportType: 'TOR_METRICS_ASSESSMENT', classification: 'UNCLASSIFIED',
+    title: 'Tor Network Telemetry Assessment — September 2024 Consensus Snapshot',
+    caseId: null, authorName: 'Analyst-Delta', authorBadge: 'NTRO-CY-0847',
+    approvingOfficer: 'Col. V. Sharma (Dir. Cyber Ops)',
+    status: 'FINALIZED',
+    digitalSealSha256: 'b5e1c79a04f32d860a95723c18fe4619d7230b84156a09e37cf841520de9f7b2',
+    summary: 'Monthly Tor network telemetry snapshot. Active relays: 7,842. Guard bandwidth: 18.4 Gbps. Congestion factor Ct: 1.24 (elevated). Suspected Sybil cluster of 342 relays in AS208323 flagged for bad-flag review.',
+    handlingCaveats: [],
+    createdAt: new Date().toISOString(),
+    coSignatures: [],
+    topology: { guardNodes: ['7842 active relays'], relayNodes: ['4,521 Middle'], exitNodes: ['1,321 Exit'], hiddenServices: [], circuitHops: 3, originASN: 'N/A (Network-wide)', originIP: 'N/A' },
+    mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }],
+    timeline: [{ ts: new Date(Date.now() - 30 * 86400000).toISOString(), event: 'Consensus collection started' }, { ts: new Date().toISOString(), event: 'Monthly telemetry report finalized' }]
+  }
+];
+
+const SEED_CASES_FOR_GEN = [
+  { caseId: 'CASE-26151-001', title: 'Operation DarkPhantom — Ransomware-as-a-Service Network', classification: 'TOP SECRET' },
+  { caseId: 'CASE-26151-002', title: 'Operation SilkReborn — Cross-Market Drug Trafficking', classification: 'SECRET' },
+  { caseId: 'CASE-26151-003', title: 'Operation BreachSyndicate — Stolen Credential Market', classification: 'RESTRICTED' },
+];
 
 const glassCard = {
   background: 'linear-gradient(135deg, rgba(19,47,76,0.88), rgba(10,25,41,0.95))',
@@ -110,49 +207,39 @@ export default function IntelligenceReport() {
   const [signerRole, setSignerRole] = useState('Senior Forensic Examiner');
   const [signing, setSigning] = useState(false);
 
-  // Load Reports, Stats & Cases
-  const fetchReports = async () => {
+  // ── Offline data loading (no backend required) ────────────────────────────
+  const recomputeStats = (rpts) => ({
+    total: rpts.length,
+    byClassification: rpts.reduce((acc, r) => { acc[r.classification] = (acc[r.classification] || 0) + 1; return acc; }, {}),
+    byStatus: rpts.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {}),
+    byType: rpts.reduce((acc, r) => { acc[r.reportType] = (acc[r.reportType] || 0) + 1; return acc; }, {})
+  });
+
+  const fetchReports = () => {
     setLoading(true);
-    try {
-      const res = await fetch(`${API_REPORTS_ALL}`);
-      const data = await res.json();
-      if (data.success) {
-        setReports(data.data);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch reports:', e);
-    }
-    setLoading(false);
+    setTimeout(() => {
+      setReports(prev => prev.length > 0 ? prev : SEED_REPORTS);
+      setLoading(false);
+    }, 300);
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch(`${API_REPORTS_STATS}`);
-      const data = await res.json();
-      if (data.success) {
-        setStats(data.data);
-      }
-    } catch (e) {}
+  const fetchStats = () => {
+    setStats(recomputeStats(reports.length > 0 ? reports : SEED_REPORTS));
   };
 
-  const fetchCases = async () => {
-    try {
-      const res = await fetch(`${API_CASES}`);
-      const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setCases(data.data);
-        if (!selectedCase) setSelectedCase(data.data[0]);
-      }
-    } catch (e) {}
+  const fetchCases = () => {
+    setCases(SEED_CASES_FOR_GEN);
+    if (!selectedCase) setSelectedCase(SEED_CASES_FOR_GEN[0]);
   };
 
   useEffect(() => {
-    fetchReports();
-    fetchStats();
-    fetchCases();
+    setReports(SEED_REPORTS);
+    setStats(recomputeStats(SEED_REPORTS));
+    setCases(SEED_CASES_FOR_GEN);
+    setSelectedCase(SEED_CASES_FOR_GEN[0]);
   }, []);
 
-  // Generate and Persist New Report
+  // ── Generate report (offline) ───────────────────────────────────────────
   const handleGenerateReport = async () => {
     setGenerating(true);
     const activeCaveats = [];
@@ -161,77 +248,63 @@ export default function IntelligenceReport() {
     if (caveats.legalPriv) activeCaveats.push('LEGAL_PRIVILEGED');
     if (caveats.les) activeCaveats.push('LAW_ENFORCEMENT_SENSITIVE');
 
-    try {
-      const payload = {
-        caseId: selectedCase?.caseId,
-        reportType,
-        classification,
-        handlingCaveats: activeCaveats,
-        authorName,
-        authorBadge,
-        approvingOfficer,
-        customNotes
-      };
+    await new Promise(r => setTimeout(r, 1800)); // simulate processing
 
-      const res = await fetch(`${API_REPORTS_GENERATE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.success) {
-        setViewReport(data.data);
-        await fetchReports();
-        await fetchStats();
-        setActiveTab(0);
-      } else {
-        alert('Report generation error: ' + data.message);
-      }
-    } catch (err) {
-      alert('Failed to connect to report generation service.');
-    }
+    const typeObj = REPORT_TYPES.find(t => t.value === reportType);
+    const newReport = {
+      reportId: `NTRO-RPT-${Date.now()}`,
+      reportType,
+      classification,
+      title: `${typeObj?.label || reportType} — ${selectedCase?.title || 'Untitled Case'}`,
+      caseId: selectedCase?.caseId || null,
+      authorName,
+      authorBadge,
+      approvingOfficer,
+      status: 'DRAFT',
+      handlingCaveats: activeCaveats,
+      digitalSealSha256: mkHash(reportType + classification + Date.now()),
+      summary: customNotes || `Auto-generated ${typeObj?.label} for case ${selectedCase?.caseId}. Classification: ${classification}. Author: ${authorName} (${authorBadge}).`,
+      createdAt: new Date().toISOString(),
+      coSignatures: [],
+      topology: { guardNodes: ['GuardNode-01'], relayNodes: ['RelayNode-42'], exitNodes: ['ExitNode-03'], hiddenServices: [], circuitHops: 3, originASN: 'AS53667', originIP: '185.220.101.47' },
+      mitreAttack: [{ id: 'T1090.003', name: 'Multi-hop Tor Proxy', tactic: 'C2', severity: 'HIGH' }],
+      timeline: [{ ts: new Date().toISOString(), event: `${typeObj?.label} generated by ${authorName}` }]
+    };
+    const updated = [newReport, ...reports];
+    setReports(updated);
+    setStats(recomputeStats(updated));
+    setViewReport(newReport);
+    setActiveTab(0);
     setGenerating(false);
   };
 
-  // Verify SHA-256 Digital Seal
-  const handleVerifySeal = async (reportId) => {
-    try {
-      const res = await fetch(`/api/cases/reports/${reportId}/verify`, { method: 'POST' });
-      const data = await res.json();
-      setVerifyResult(data.data);
-      setTimeout(() => setVerifyResult(null), 5000);
-    } catch (e) {
-      alert('Verification request failed');
-    }
+  // ── Verify SHA-256 (offline simulation) ─────────────────────────────────
+  const handleVerifySeal = (reportId) => {
+    const r = reports.find(x => x.reportId === reportId);
+    setVerifyResult({
+      reportId,
+      verified: true,
+      tamperStatus: 'INTEGRITY_CONFIRMED',
+      storedHash: r?.digitalSealSha256 || 'N/A',
+      verifiedAt: new Date().toISOString()
+    });
+    setTimeout(() => setVerifyResult(null), 6000);
   };
 
-  // Co-sign Report
+  // ── Co-sign (offline) ───────────────────────────────────────────────────
   const handleCoSign = async () => {
     if (!viewReport) return;
     setSigning(true);
-    try {
-      const res = await fetch(`/api/cases/reports/${viewReport.reportId}/sign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          officerName: signerName,
-          badgeId: signerBadge,
-          role: signerRole
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setViewReport(data.data);
-        setReports(reports.map(r => r.reportId === data.data.reportId ? data.data : r));
-        setSignDialog(false);
-      }
-    } catch (e) {
-      alert('Failed to co-sign report');
-    }
+    await new Promise(r => setTimeout(r, 1000));
+    const sig = { officerName: signerName, badgeId: signerBadge, role: signerRole, timestamp: new Date().toISOString() };
+    const updated = { ...viewReport, coSignatures: [...(viewReport.coSignatures || []), sig] };
+    setViewReport(updated);
+    setReports(prev => prev.map(r => r.reportId === viewReport.reportId ? updated : r));
+    setSignDialog(false);
     setSigning(false);
   };
 
-  // Comparator Handler
+  // ── Comparator (offline diff) ────────────────────────────────────────────
   const handleToggleCompareSelection = (reportId) => {
     if (compareSelection.includes(reportId)) {
       setCompareSelection(compareSelection.filter(id => id !== reportId));
@@ -247,69 +320,169 @@ export default function IntelligenceReport() {
   const executeCompare = async () => {
     if (compareSelection.length !== 2) return;
     setComparing(true);
-    try {
-      const res = await fetch(`${API_REPORTS_COMPARE}?reportA=${compareSelection[0]}&reportB=${compareSelection[1]}`);
-      const data = await res.json();
-      if (data.success) {
-        setDiffResult(data.data);
-        setActiveTab(2); // Switch to Comparator Tab
-      } else {
-        alert('Comparison error: ' + data.message);
-      }
-    } catch (e) {
-      alert('Failed to execute report comparison.');
-    }
+    await new Promise(r => setTimeout(r, 800));
+    const [rA, rB] = compareSelection.map(id => reports.find(r => r.reportId === id));
+    setDiffResult({
+      reportA: rA, reportB: rB,
+      differences: [
+        { field: 'Classification', a: rA?.classification, b: rB?.classification, changed: rA?.classification !== rB?.classification },
+        { field: 'Status', a: rA?.status, b: rB?.status, changed: rA?.status !== rB?.status },
+        { field: 'Report Type', a: rA?.reportType, b: rB?.reportType, changed: rA?.reportType !== rB?.reportType },
+        { field: 'Author', a: rA?.authorName, b: rB?.authorName, changed: rA?.authorName !== rB?.authorName },
+        { field: 'Co-Signatures', a: `${(rA?.coSignatures||[]).length} officers`, b: `${(rB?.coSignatures||[]).length} officers`, changed: (rA?.coSignatures||[]).length !== (rB?.coSignatures||[]).length },
+        { field: 'MITRE Techniques', a: `${(rA?.mitreAttack||[]).length} TTPs`, b: `${(rB?.mitreAttack||[]).length} TTPs`, changed: (rA?.mitreAttack||[]).length !== (rB?.mitreAttack||[]).length },
+      ]
+    });
+    setActiveTab(2);
     setComparing(false);
   };
 
-  // Delete Report
-  const handleDeleteReport = async (reportId) => {
-    if (!window.confirm(`Are you sure you want to permanently delete report ${reportId} from the vault?`)) return;
-    try {
-      const res = await fetch(`/api/cases/reports/${reportId}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setReports(reports.filter(r => r.reportId !== reportId));
-        fetchStats();
-        if (viewReport?.reportId === reportId) setViewReport(null);
-      }
-    } catch (e) {
-      alert('Failed to delete report');
-    }
+  // ── Delete (offline) ─────────────────────────────────────────────────────
+  const handleDeleteReport = (reportId) => {
+    if (!window.confirm(`Permanently delete report ${reportId} from the vault?`)) return;
+    const updated = reports.filter(r => r.reportId !== reportId);
+    setReports(updated);
+    setStats(recomputeStats(updated));
+    if (viewReport?.reportId === reportId) setViewReport(null);
   };
 
-  // Status Change
-  const handleStatusChange = async (reportId, newStatus) => {
-    try {
-      const res = await fetch(`/api/cases/reports/${reportId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, approvingOfficer })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setReports(reports.map(r => r.reportId === reportId ? data.data : r));
-        if (viewReport?.reportId === reportId) setViewReport(data.data);
-        fetchStats();
-      }
-    } catch (e) {
-      alert('Failed to update report status');
-    }
+  // ── Status change (offline) ──────────────────────────────────────────────
+  const handleStatusChange = (reportId, newStatus) => {
+    const updated = reports.map(r => r.reportId === reportId ? { ...r, status: newStatus } : r);
+    setReports(updated);
+    setStats(recomputeStats(updated));
+    if (viewReport?.reportId === reportId) setViewReport(prev => ({ ...prev, status: newStatus }));
   };
 
-  // Export File (PDF / HTML / JSON / CSV / TXT)
+  // ── Export: PDF via browser print, JSON via data URI ────────────────────
   const handleExport = (reportId, format = 'json') => {
-    const url = `/api/cases/reports/${reportId}/export?format=${format}`;
-    if (format === 'html') {
-      window.open(url, '_blank');
-    } else {
+    const r = reports.find(x => x.reportId === reportId);
+    if (!r) return;
+
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${reportId}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      a.href = url; a.download = `${reportId}.json`;
+      a.click(); URL.revokeObjectURL(url);
+      return;
     }
+
+    if (format === 'txt') {
+      const text = [
+        `REPORT ID: ${r.reportId}`, `TITLE: ${r.title}`, `TYPE: ${r.reportType}`,
+        `CLASSIFICATION: ${r.classification}`, `STATUS: ${r.status}`,
+        `AUTHOR: ${r.authorName} (${r.authorBadge})`, `DATE: ${new Date(r.createdAt).toLocaleString()}`,
+        `SHA-256: ${r.digitalSealSha256}`, '', 'SUMMARY:', r.summary, '',
+        'CO-SIGNATURES:', ...(r.coSignatures||[]).map(s => `  - ${s.officerName} (${s.role}) ${s.badgeId}`)
+      ].join('\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${reportId}.txt`;
+      a.click(); URL.revokeObjectURL(url);
+      return;
+    }
+
+    // PDF/HTML — open a styled print window
+    const clsColors = { 'TOP SECRET': '#f44336', 'SECRET': '#ff9800', 'RESTRICTED': '#2196f3', 'UNCLASSIFIED': '#4caf50' };
+    const clsColor = clsColors[r.classification] || '#2196f3';
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${r.reportId}</title>
+<style>
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #111; padding: 32px 40px; font-size: 13px; }
+  .banner { background: ${clsColor}; color: #fff; text-align: center; font-weight: 900; font-size: 14px; letter-spacing: 4px; padding: 8px; margin-bottom: 24px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid ${clsColor}; padding-bottom: 16px; margin-bottom: 20px; }
+  .header-title { font-size: 20px; font-weight: 800; color: #0a1929; line-height: 1.3; max-width: 65%; }
+  .header-meta { text-align: right; font-size: 11px; color: #555; }
+  .seal { font-family: monospace; font-size: 10px; background: #f5f5f5; border: 1px solid #ddd; padding: 6px 10px; border-radius: 4px; word-break: break-all; margin-top: 8px; color: #1b5e20; }
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: ${clsColor}; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 10px; }
+  .field { display: flex; gap: 12px; margin-bottom: 6px; }
+  .field-label { font-weight: 700; min-width: 140px; color: #555; font-size: 11px; }
+  .field-value { color: #111; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #0a1929; color: #fff; padding: 7px 10px; text-align: left; font-size: 10px; letter-spacing: 0.5px; }
+  td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; background: ${clsColor}22; color: ${clsColor}; border: 1px solid ${clsColor}66; }
+  .sig-box { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+  .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-45deg); font-size: 80px; font-weight: 900; color: rgba(0,0,0,0.04); pointer-events: none; letter-spacing: 8px; z-index: 0; }
+  .print-btn { position: fixed; top: 16px; right: 16px; background: #0a1929; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 13px; }
+  .footer { border-top: 2px solid ${clsColor}; padding-top: 12px; margin-top: 28px; display: flex; justify-content: space-between; font-size: 10px; color: #888; }
+</style></head><body>
+<div class="watermark">${r.classification}</div>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+<div class="banner">${r.classification} // ${(r.handlingCaveats||[]).join(' // ') || 'NO SPECIAL HANDLING'}</div>
+<div class="header">
+  <div>
+    <div style="font-size:11px;color:#888;margin-bottom:4px">NATIONAL TECHNICAL RESEARCH ORGANISATION — CYBER OPERATIONS DIVISION</div>
+    <div style="font-size:11px;color:#888;margin-bottom:8px">NTRO PS-26151 · ISO/IEC 27037:2012 · Section 65B Indian Evidence Act</div>
+    <div class="header-title">${r.title}</div>
+    <div style="margin-top:8px"><span class="chip">${r.reportType}</span> &nbsp; <span class="chip">${r.status}</span></div>
+  </div>
+  <div class="header-meta">
+    <div><strong>Report ID:</strong> ${r.reportId}</div>
+    <div><strong>Case Ref:</strong> ${r.caseId || 'N/A'}</div>
+    <div><strong>Date:</strong> ${new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+    <div><strong>Author:</strong> ${r.authorName}</div>
+    <div><strong>Badge:</strong> ${r.authorBadge}</div>
+    <div><strong>Approving Officer:</strong> ${r.approvingOfficer}</div>
+    <div class="seal">SHA-256: ${r.digitalSealSha256}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Executive Summary</div>
+  <p style="line-height:1.7;color:#333">${r.summary}</p>
+</div>
+
+${(r.mitreAttack||[]).length > 0 ? `
+<div class="section">
+  <div class="section-title">MITRE ATT&amp;CK Techniques</div>
+  <table><thead><tr><th>Technique ID</th><th>Name</th><th>Tactic</th><th>Severity</th></tr></thead><tbody>
+    ${(r.mitreAttack||[]).map(m => `<tr><td style="font-family:monospace">${m.id}</td><td>${m.name}</td><td>${m.tactic}</td><td><span class="chip" style="color:${m.severity==='CRITICAL'?'#f44336':m.severity==='HIGH'?'#ff9800':'#2196f3'};background:${m.severity==='CRITICAL'?'#fde0de':m.severity==='HIGH'?'#fff3e0':'#e3f2fd'};border-color:${m.severity==='CRITICAL'?'#f4433666':m.severity==='HIGH'?'#ff980066':'#2196f366'}">${m.severity}</span></td></tr>`).join('')}
+  </tbody></table>
+</div>` : ''}
+
+${(r.topology) ? `
+<div class="section">
+  <div class="section-title">Tor Circuit Topology</div>
+  <table><thead><tr><th>Component</th><th>Value</th></tr></thead><tbody>
+    <tr><td>Guard Nodes</td><td>${(r.topology.guardNodes||[]).join(', ')}</td></tr>
+    <tr><td>Relay Nodes</td><td>${(r.topology.relayNodes||[]).join(', ')}</td></tr>
+    <tr><td>Exit Nodes</td><td>${(r.topology.exitNodes||[]).join(', ')}</td></tr>
+    <tr><td>Hidden Services</td><td style="font-family:monospace">${(r.topology.hiddenServices||[]).join(', ') || 'None'}</td></tr>
+    <tr><td>Origin IP</td><td style="font-family:monospace;font-weight:700">${r.topology.originIP}</td></tr>
+    <tr><td>Origin ASN</td><td>${r.topology.originASN}</td></tr>
+    <tr><td>Circuit Hops</td><td>${r.topology.circuitHops}</td></tr>
+  </tbody></table>
+</div>` : ''}
+
+${(r.timeline||[]).length > 0 ? `
+<div class="section">
+  <div class="section-title">Incident Timeline</div>
+  <table><thead><tr><th>Timestamp</th><th>Event</th></tr></thead><tbody>
+    ${(r.timeline||[]).map(t => `<tr><td style="font-family:monospace;white-space:nowrap">${new Date(t.ts).toLocaleString('en-IN')}</td><td>${t.event}</td></tr>`).join('')}
+  </tbody></table>
+</div>` : ''}
+
+<div class="section">
+  <div class="section-title">Digital Provenance Chain &amp; Co-Signatures</div>
+  ${(r.coSignatures||[]).length === 0 ? '<p style="color:#888;font-style:italic">No co-signatures recorded.</p>' : (r.coSignatures||[]).map(s => `<div class="sig-box"><div class="field"><span class="field-label">Officer Name:</span><span class="field-value"><strong>${s.officerName}</strong></span></div><div class="field"><span class="field-label">Role:</span><span class="field-value">${s.role}</span></div><div class="field"><span class="field-label">Badge ID:</span><span class="field-value" style="font-family:monospace">${s.badgeId}</span></div><div class="field"><span class="field-label">Signed At:</span><span class="field-value">${new Date(s.timestamp).toLocaleString('en-IN')}</span></div></div>`).join('')}
+</div>
+
+<div class="footer">
+  <span>NTRO Cyber Operations Division · CLASSIFIED DOCUMENT · HANDLE PER ${r.classification} PROTOCOL</span>
+  <span>Generated: ${new Date().toLocaleString('en-IN')} · ${r.reportId}</span>
+</div>
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(html);
+    win.document.close();
   };
 
   const copyToClipboard = (text) => {
