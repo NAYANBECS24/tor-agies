@@ -75,6 +75,15 @@ const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Real user from localStorage
+  const storedUser = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+  })();
+  const userInitials = storedUser.username
+    ? storedUser.username.slice(0, 2).toUpperCase()
+    : 'OP';
+  const userAvatarColor = storedUser.color || '#2196f3';
+
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Home', icon: <HomeIcon />, path: '/' },
@@ -140,11 +149,31 @@ const Layout = () => {
     }
   };
 
+  // Proper logout: clear session then redirect
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('rememberMe');
+    handleMenuClose();
+    navigate('/login', { replace: true });
+  };
+
   const isActive = (path) => {
     if (path === '/' && location.pathname === '/') return true;
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
+
+  // Dynamic breadcrumb label from current path
+  const allMenuItems = [
+    ...menuItems, ...darkWebMenuItems, ...investigationMenuItems, ...bottomMenuItems
+  ];
+  const currentPage = allMenuItems.find(item => {
+    if (item.path === '/' && location.pathname === '/') return true;
+    if (item.path !== '/' && location.pathname === item.path) return true;
+    return false;
+  });
+  const breadcrumbLabel = currentPage ? currentPage.text : 'Dashboard';
 
   const drawer = (
     <Box sx={{ 
@@ -439,29 +468,28 @@ const Layout = () => {
           {bottomMenuItems.map((item) => (
             <ListItem key={item.text} disablePadding>
               <ListItemButton
-                onClick={() => handleNavigation(item.path)}
+                onClick={item.text === 'Logout' ? handleLogout : () => handleNavigation(item.path)}
                 sx={{
                   py: 1.5,
                   px: 3,
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    backgroundColor: item.text === 'Logout'
+                      ? 'rgba(244,67,54,0.08)'
+                      : 'rgba(255, 255, 255, 0.05)',
                   },
                 }}
               >
                 <ListItemIcon sx={{ 
-                  color: 'rgba(255, 255, 255, 0.7)', 
+                  color: item.text === 'Logout' ? '#f44336' : 'rgba(255, 255, 255, 0.7)', 
                   minWidth: 36 
                 }}>
-                  {item.text === 'Logout' 
-                    ? React.cloneElement(item.icon, { sx: { fontSize: 18 } })
-                    : React.cloneElement(item.icon, { sx: { fontSize: 18 } })
-                  }
+                  {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
                 </ListItemIcon>
                 <ListItemText 
                   primary={item.text} 
                   primaryTypographyProps={{ 
                     fontSize: '0.85rem',
-                    color: 'rgba(255, 255, 255, 0.7)'
+                    color: item.text === 'Logout' ? '#f44336' : 'rgba(255, 255, 255, 0.7)'
                   }}
                 />
               </ListItemButton>
@@ -510,7 +538,7 @@ const Layout = () => {
               Tor Sentinel
             </Typography>
             <Chip 
-              label="Dashboard" 
+              label={breadcrumbLabel} 
               size="small" 
               sx={{ 
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -553,11 +581,11 @@ const Layout = () => {
                 <Avatar sx={{ 
                   width: 36, 
                   height: 36, 
-                  background: 'linear-gradient(135deg, #2196f3, #4dabf5)',
-                  fontSize: '1rem',
+                  background: `linear-gradient(135deg, ${userAvatarColor}, ${userAvatarColor}cc)`,
+                  fontSize: '0.85rem',
                   fontWeight: 'bold'
                 }}>
-                  OP
+                  {userInitials}
                 </Avatar>
               </IconButton>
             </Tooltip>
@@ -594,7 +622,7 @@ const Layout = () => {
               <Typography variant="body2">Settings</Typography>
             </MenuItem>
             <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-            <MenuItem onClick={() => handleNavigation('/login')} sx={{ color: '#f44336' }}>
+            <MenuItem onClick={handleLogout} sx={{ color: '#f44336' }}>
               <ListItemIcon>
                 <LogoutIcon fontSize="small" sx={{ color: '#f44336' }} />
               </ListItemIcon>
