@@ -28,8 +28,13 @@ router.get('/soc-compliance', torController.getSocCoManagedStatus);
 // ─── On-Demand Sync ───────────────────────────────────────────────────────────
 router.post('/sync', torController.triggerSnapshotSync);
 
+// ─── Traffic Intelligence ───────────────────────────────────────────────────
+router.get('/traffic', torController.getTrafficMetrics);
+router.get('/metrics/traffic', torController.getTrafficMetrics);
+
 // ─── Relay Nodes ──────────────────────────────────────────────────────────────
 router.get('/nodes', torController.getNodes);
+router.get('/nodes/active', torController.getActiveNodes);
 router.get('/nodes/search', torController.searchNodes);
 router.get('/nodes/:id', torController.getNodeById);
 

@@ -171,9 +171,9 @@ router.get('/nodes/active', (req, res) => {
   res.json({
     success: true,
     nodes: [
-      { id: 'node-1', type: 'Guard', status: 'active', uptime: '99.8%', bandwidth: '2.4 Gbps' },
-      { id: 'node-2', type: 'Exit', status: 'active', uptime: '97.2%', bandwidth: '1.8 Gbps' },
-      { id: 'node-3', type: 'Relay', status: 'active', uptime: '98.9%', bandwidth: '1.2 Gbps' }
+      { id: 'node-1', nickname: 'GuardRelay-DE', ip: '185.220.101.4', country: 'DE', type: 'guard', status: 'active', uptime: '99.8%', bandwidth: '2.4 Gbps', flags: ['Fast', 'Running', 'Guard', 'Valid'], lastSeen: new Date().toISOString() },
+      { id: 'node-2', nickname: 'ExitRelay-US', ip: '192.42.116.16', country: 'US', type: 'exit', status: 'active', uptime: '97.2%', bandwidth: '1.8 Gbps', flags: ['Fast', 'Running', 'Exit', 'Valid'], lastSeen: new Date().toISOString() },
+      { id: 'node-3', nickname: 'MiddleRelay-NL', ip: '204.76.203.203', country: 'NL', type: 'middle', status: 'active', uptime: '98.9%', bandwidth: '1.2 Gbps', flags: ['Fast', 'Running', 'V2Dir', 'Valid'], lastSeen: new Date().toISOString() }
     ],
     total: 6985
   });

@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // Layout Component
 import Layout from './components/Layout/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Auth Pages (standalone — no sidebar)
 import Login from './pages/Login';
@@ -137,7 +138,9 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Layout />
+                <ErrorBoundary>
+                  <Layout />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           >

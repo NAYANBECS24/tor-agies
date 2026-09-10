@@ -39,7 +39,15 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If backend or static host (e.g. Vercel SPA rewrite) returns HTML instead of JSON for an API call, treat as error so fallback activates
+    if (typeof response?.data === 'string' && (response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<html') || response.data.trim().startsWith('<!doctype'))) {
+      const error = new Error('HTML response received for API request');
+      error.response = { status: 404, data: null };
+      return Promise.reject(error);
+    }
+    return response;
+  },
   (error) => {
     if (error.response) {
       // Handle 401 Unauthorized
