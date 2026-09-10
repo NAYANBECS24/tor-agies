@@ -1,43 +1,56 @@
 /**
- * tor.controller.js — TOR Sentinel 2.0
+ * tor.controller.js — TOR-AEGIS
  * SQLite + Onionoo REST Controller
+ * All KPIs sourced from real database queries — no hardcoded numbers.
  * Features: Near-Real-Time Public Tor Intelligence, Relay Deltas (ΔB),
- * Adaptive ATWC Network-State Estimator, and SOC Co-Managed Security Compliance (RFT 26/2026)
+ * Adaptive ATWC Network-State Estimator, SOC Co-Managed Security Compliance (RFT 26/2026)
  */
 
 const TorNode = require('../models/TorNode');
 const TrafficLog = require('../models/TrafficLog');
 const onionooCollector = require('../services/onionooCollector');
 const adaptiveAtwcEstimator = require('../services/adaptiveAtwcEstimator');
+const torMetricsService = require('../services/torMetricsService');
 const { getDB } = require('../config/database');
 const logger = require('../utils/logger');
 
 const torController = {
+  // ─── Unified Dashboard KPIs (all numbers from DB) ───────────────────────────
+  getDashboardKPIs: async (req, res) => {
+    try {
+      const kpis = await torMetricsService.getDashboardKPIs();
+      res.json({ success: true, data: kpis, source: 'SQLite + Onionoo', timestamp: new Date().toISOString() });
+    } catch (err) {
+      logger.error(`[TorController] getDashboardKPIs error: ${err.message}`);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
   // ─── Network Overview ────────────────────────────────────────────────────────
   getNetworkOverview: async (req, res) => {
     try {
-      const nodeStats = TorNode.getStats();
-      const snapshot = onionooCollector.getLatestSnapshot();
-      const totalNodes = snapshot?.totalRelays || nodeStats.total || 7200;
-      const exitNodes = snapshot?.exitRelays || nodeStats.exitNodes || 1200;
-      const guardNodes = snapshot?.guardRelays || nodeStats.guardNodes || 2500;
+      const kpis = await torMetricsService.getDashboardKPIs();
+      const snapshot = onionooCollector.getLatestSnapshot ? onionooCollector.getLatestSnapshot() : null;
 
       res.json({
         success: true,
         data: {
-          totalNodes,
-          exitNodes,
-          guardNodes,
-          activeRelays: snapshot?.runningRelays || totalNodes,
-          bridgeCount: snapshot?.bridgeCount || Math.round(totalNodes * 0.18),
-          totalBandwidth: snapshot?.totalBandwidthGbit || '450 Gbit/s',
-          avgBandwidthMB: snapshot?.avgBandwidthMB || '48.5 MB/s',
-          consensusWeight: 100,
-          countries: nodeStats.byCountry?.length || 85,
-          congestionFactor: snapshot?.congestionFactor || 0.12,
-          adaptiveTiming: snapshot?.adaptiveTiming || null,
+          totalNodes: kpis.totalNodes,
+          exitNodes: kpis.exitNodes,
+          guardNodes: kpis.guardNodes,
+          activeRelays: kpis.activeNodes,
+          newlyObserved: kpis.newlyObserved,
+          returned: kpis.returned,
+          statusChanged: kpis.statusChanged,
+          notObserved: kpis.notObserved,
+          overloadRelays: kpis.overloadRelays,
+          totalBandwidthBytes: kpis.totalBandwidthBytes,
+          avgBandwidthBytes: kpis.avgBandwidthBytes,
+          congestionFactor: kpis.congestionFactor,
+          adaptiveTiming: { muPrior: kpis.adaptiveMuMs, sigmaPrior: kpis.adaptiveSigmaMs },
           httpCacheStatus: snapshot?.httpCacheStatus || 'fresh',
           source: 'Onionoo REST API (Near-Real-Time Public Tor Network Intelligence)',
+          hasRealData: kpis.hasRealData,
           timestamp: new Date().toISOString()
         }
       });

@@ -1,5 +1,48 @@
 import axios from './axios';
 
+// ─── Intelligence API helpers ──────────────────────────────────────────────────
+export const intelligenceApi = {
+  // CT Log Intelligence
+  queryCTLogs: (domain, params = {}) => axios.get('/v2/ct-logs/query', { params: { domain, ...params } }),
+  getCTRecordsByDomain: (domain) => axios.get(`/v2/ct-logs/domain/${encodeURIComponent(domain)}`),
+  getActorCTRecords: (actorId) => axios.get(`/v2/ct-logs/actor/${actorId}`),
+
+  // PGP Key Analysis
+  lookupPGPKey: (fingerprint, params = {}) => axios.get(`/v2/pgp/lookup/${encodeURIComponent(fingerprint)}`, { params }),
+  searchPGPByEmail: (email, params = {}) => axios.get('/v2/pgp/search-email', { params: { email, ...params } }),
+  getActorPGPKeys: (actorId) => axios.get(`/v2/pgp/actor/${actorId}`),
+  getAllPGPKeys: (params = {}) => axios.get('/v2/pgp/all', { params }),
+
+  // Stylometry
+  analyzeText: (text, meta = {}) => axios.post('/v2/stylometry/analyze', { text, ...meta }),
+  compareTexts: (textA, textB, meta = {}) => axios.post('/v2/stylometry/compare', { textA, textB, ...meta }),
+  getRecentAnalyses: (limit = 20) => axios.get('/v2/stylometry/analyses', { params: { limit } }),
+  getActorCorpus: (actorId) => axios.get(`/v2/stylometry/corpus/${actorId}`),
+
+  // Evidence Vault
+  getVaultStats: () => axios.get('/v2/evidence-vault/stats'),
+  getCaseVaultItems: (caseId, params = {}) => axios.get(`/v2/evidence-vault/case/${caseId}`, { params }),
+  getActorVaultItems: (actorId, params = {}) => axios.get(`/v2/evidence-vault/actor/${actorId}`, { params }),
+  getVaultItem: (evidenceId) => axios.get(`/v2/evidence-vault/item/${evidenceId}`),
+  verifyEvidence: (evidenceId) => axios.get(`/v2/evidence-vault/verify/${evidenceId}`),
+  sealEvidence: (artifact, meta = {}) => axios.post('/v2/evidence-vault/seal', { artifact, meta }),
+
+  // Audit Trail
+  getAuditTrail: (params = {}) => axios.get('/v2/audit-trail', { params }),
+  getCaseAuditTrail: (caseId, params = {}) => axios.get(`/v2/audit-trail/case/${caseId}`, { params }),
+
+  // Infrastructure Intelligence
+  fingerprintDomain: (domain, meta = {}) => axios.post('/v2/infrastructure/fingerprint', { domain, ...meta }),
+  getActorInfrastructure: (actorId, params = {}) => axios.get(`/v2/infrastructure/actor/${actorId}`, { params }),
+  geoLocateIP: (ip) => axios.get(`/v2/infrastructure/geoip/${ip}`),
+
+  // Blockchain Graph
+  buildAddressGraph: (address, options = {}) => axios.post('/v2/blockchain/graph/build', { address, ...options }),
+  getActorBlockchainGraph: (actorId) => axios.get(`/v2/blockchain/graph/actor/${actorId}`),
+  getAddressEdges: (address, params = {}) => axios.get(`/v2/blockchain/graph/address/${address}`, { params }),
+  getAddressWithGraph: (address) => axios.get(`/v2/blockchain/address/${address}`)
+};
+
 // ============== BASE TOR NETWORK API ==============
 export const torAPI = {
   // Network Overview
@@ -16,36 +59,22 @@ export const torAPI = {
 
 // ============== TOR METRICS API ==============
 export const torMetricsApi = {
+  // Unified real KPIs from database — primary source for all dashboard numbers
+  getDashboardKPIs: () => axios.get('/tor/dashboard-kpis'),
+
   getMetrics: async () => {
     try {
-      const response = await axios.get('/api/tor/metrics');
+      const response = await axios.get('/tor/metrics');
       return response;
     } catch {
-      // Fallback mock metrics data
+      // Return empty state — UI should show "Pending sync" not fake numbers
       return {
         data: {
-          totalNodes: 6842,
-          activeNodes: 5983,
-          bandwidth: '2.4 TB/s',
-          uptime: 99.8,
-          relaysByType: {
-            guard: 1984,
-            middle: 3622,
-            exit: 1236
-          },
-          topCountries: [
-            { country: 'United States', nodes: 1856, percentage: 27.1 },
-            { country: 'Germany', nodes: 892, percentage: 13.0 },
-            { country: 'France', nodes: 643, percentage: 9.4 },
-            { country: 'Netherlands', nodes: 521, percentage: 7.6 },
-            { country: 'Russia', nodes: 467, percentage: 6.8 }
-          ],
-          performance: {
-            avgLatency: 350,
-            avgThroughput: 45.2,
-            successRate: 98.5
-          },
-          lastUpdated: new Date().toISOString()
+          totalNodes: 0, activeNodes: 0, bandwidth: 'Pending sync',
+          uptime: 0, relaysByType: { guard: 0, middle: 0, exit: 0 },
+          topCountries: [], performance: { avgLatency: 0, avgThroughput: 0, successRate: 0 },
+          lastUpdated: null, syncRequired: true,
+          message: 'Awaiting first Onionoo sync. Run backend to load real data.'
         }
       };
     }
@@ -53,74 +82,29 @@ export const torMetricsApi = {
   
   getNodeInfo: async (nodeId) => {
     try {
-      const response = await axios.get(`/api/tor/nodes/${nodeId}`);
+      const response = await axios.get(`/tor/nodes/${nodeId}`);
       return response;
     } catch {
-      // Fallback mock node info
       return {
         data: {
-          id: nodeId || 'node_001',
-          fingerprint: 'A7569A8B9C0D1E2F3A4B5C6D7E8F9A0B1C2D3E4F',
-          nickname: 'FastRelayNode',
-          ip: '185.220.101.' + Math.floor(Math.random() * 255),
-          port: 443,
-          flags: ['Fast', 'Stable', 'Valid'],
-          bandwidth: Math.floor(Math.random() * 100) + 50 + ' MB/s',
-          uptime: Math.floor(Math.random() * 100) + '%',
-          firstSeen: new Date(Date.now() - Math.random() * 31536000000).toISOString(),
-          lastSeen: new Date().toISOString(),
-          country: ['US', 'DE', 'FR', 'NL', 'RU'][Math.floor(Math.random() * 5)],
-          asNumber: 'AS' + Math.floor(Math.random() * 100000),
-          isExit: Math.random() > 0.7,
-          isGuard: Math.random() > 0.5,
-          consensusWeight: Math.floor(Math.random() * 10000),
-          dirPort: 9030,
-          orPort: 9001,
-          platform: 'Tor 0.4.8.7 on Linux',
-          contact: 'tor-admin@example.com',
-          family: []
+          id: nodeId, nickname: 'Unknown', flags: [],
+          bandwidth: 0, isExit: false, isGuard: false,
+          syncRequired: true, message: 'Node data pending first Onionoo sync'
         }
       };
     }
   },
-  
+
   getTrafficStats: async (timeframe = '1h') => {
     try {
-      const response = await axios.get(`/api/tor/traffic?timeframe=${timeframe}`);
+      const response = await axios.get(`/tor/traffic`, { params: { timeframe } });
       return response;
     } catch {
-      // Generate mock traffic stats based on timeframe
-      const baseTraffic = {
-        '1h': { totalRequests: 4500000, bytesTransferred: '1.2 TB', avgRequestsPerMin: 75000 },
-        '24h': { totalRequests: 108000000, bytesTransferred: '28.8 TB', avgRequestsPerMin: 75000 },
-        '7d': { totalRequests: 756000000, bytesTransferred: '201.6 TB', avgRequestsPerMin: 75000 },
-        '30d': { totalRequests: 3240000000, bytesTransferred: '864 TB', avgRequestsPerMin: 75000 }
-      };
-      
-      const stats = baseTraffic[timeframe] || baseTraffic['1h'];
-      
       return {
         data: {
-          timeframe,
-          ...stats,
-          topDestinations: [
-            { domain: 'facebook.com', requests: 1250000, percentage: 27.8 },
-            { domain: 'twitter.com', requests: 890000, percentage: 19.8 },
-            { domain: 'reddit.com', requests: 675000, percentage: 15.0 },
-            { domain: 'github.com', requests: 450000, percentage: 10.0 },
-            { domain: 'wikipedia.org', requests: 315000, percentage: 7.0 }
-          ],
-          trafficByProtocol: [
-            { protocol: 'HTTPS', percentage: 78 },
-            { protocol: 'HTTP', percentage: 15 },
-            { protocol: 'SOCKS', percentage: 5 },
-            { protocol: 'Other', percentage: 2 }
-          ],
-          peakHours: Array.from({ length: 24 }, (_, hour) => ({
-            hour: `${hour}:00`,
-            traffic: Math.floor(Math.random() * 1000000) + 500000
-          })),
-          anomalies: Math.floor(Math.random() * 50),
+          timeframe, totalRequests: 0, bytesTransferred: 'Pending sync',
+          avgRequestsPerMin: 0, topDestinations: [], trafficByProtocol: [],
+          peakHours: [], anomalies: 0, syncRequired: true,
           timestamp: new Date().toISOString()
         }
       };

@@ -493,6 +493,191 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_onion_scans_ip ON onion_scans(origin_ip_candidate);
   CREATE INDEX IF NOT EXISTS idx_bc_traces_addr ON blockchain_traces(address);
   CREATE INDEX IF NOT EXISTS idx_custody_item ON evidence_custody_logs(item_id);
+
+  -- ═══ PGP KEY ANALYSIS (Cryptographic Identity Evidence) ════════════════════
+  CREATE TABLE IF NOT EXISTS pgp_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key_id TEXT NOT NULL UNIQUE,
+    fingerprint TEXT NOT NULL,
+    algorithm TEXT DEFAULT 'RSA',
+    bit_length INTEGER DEFAULT 4096,
+    created_at_key TEXT,
+    expires_at_key TEXT,
+    user_ids_json TEXT DEFAULT '[]',
+    signatures_json TEXT DEFAULT '[]',
+    observed_source TEXT DEFAULT 'keys.openpgp.org',
+    actor_id TEXT,
+    case_id TEXT,
+    sha256 TEXT,
+    raw_armored TEXT,
+    collected_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ CERTIFICATE TRANSPARENCY RECORDS (crt.sh) ═════════════════════════════
+  CREATE TABLE IF NOT EXISTS cert_transparency_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cert_id TEXT NOT NULL UNIQUE,
+    domain TEXT NOT NULL,
+    fingerprint TEXT,
+    issuer TEXT,
+    subject TEXT,
+    san_json TEXT DEFAULT '[]',
+    valid_from TEXT,
+    valid_to TEXT,
+    serial_number TEXT,
+    ct_source TEXT DEFAULT 'crt.sh',
+    crtsh_id INTEGER,
+    actor_id TEXT,
+    case_id TEXT,
+    collected_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ INFRASTRUCTURE CANDIDATES (Graph: Domain→Cert→IP→Actor) ═══════════════
+  CREATE TABLE IF NOT EXISTS infrastructure_candidates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidate_id TEXT NOT NULL UNIQUE,
+    domain TEXT,
+    ip_address TEXT,
+    cert_fingerprint TEXT,
+    san_json TEXT DEFAULT '[]',
+    source TEXT DEFAULT 'CT_LOG',
+    confidence REAL DEFAULT 0.0,
+    relationship_type TEXT DEFAULT 'HOSTED_ON',
+    actor_id TEXT,
+    case_id TEXT,
+    geo_country TEXT,
+    geo_city TEXT,
+    isp TEXT,
+    is_hosting INTEGER DEFAULT 0,
+    raw_json TEXT DEFAULT '{}',
+    observed_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ BEHAVIORAL PROFILES (Timestamp-derived features) ═══════════════════════
+  CREATE TABLE IF NOT EXISTS behavioral_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL UNIQUE,
+    actor_id TEXT NOT NULL,
+    utc_hour_distribution_json TEXT DEFAULT '{}',
+    weekday_distribution_json TEXT DEFAULT '{}',
+    weekday_ratio REAL DEFAULT 0.0,
+    weekend_ratio REAL DEFAULT 0.0,
+    posting_frequency REAL DEFAULT 0.0,
+    burstiness REAL DEFAULT 0.0,
+    inter_event_median_min REAL DEFAULT 0.0,
+    inter_event_std_min REAL DEFAULT 0.0,
+    active_days INTEGER DEFAULT 0,
+    peak_utc_hour INTEGER DEFAULT 0,
+    peak_utc_window TEXT DEFAULT '',
+    observation_count INTEGER DEFAULT 0,
+    observation_span_days INTEGER DEFAULT 0,
+    source_events_json TEXT DEFAULT '[]',
+    calculated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ STYLOMETRY CORPUS (Real NLP Feature Vectors) ════════════════════════════
+  CREATE TABLE IF NOT EXISTS stylometry_corpus (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    corpus_id TEXT NOT NULL UNIQUE,
+    actor_id TEXT,
+    case_id TEXT,
+    source_url TEXT,
+    text_hash TEXT NOT NULL,
+    word_count INTEGER DEFAULT 0,
+    char_count INTEGER DEFAULT 0,
+    avg_word_length REAL DEFAULT 0.0,
+    avg_sentence_length REAL DEFAULT 0.0,
+    vocab_richness REAL DEFAULT 0.0,
+    yule_k REAL DEFAULT 0.0,
+    punctuation_density REAL DEFAULT 0.0,
+    caps_ratio REAL DEFAULT 0.0,
+    function_word_freq_json TEXT DEFAULT '{}',
+    char_trigrams_json TEXT DEFAULT '{}',
+    word_bigrams_json TEXT DEFAULT '{}',
+    text_preview TEXT DEFAULT '',
+    model_version TEXT DEFAULT 'style-v1.0',
+    collected_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ EVIDENCE VAULT (SHA-256 Provenance — ISO 27037 / Sec 65B) ══════════════
+  CREATE TABLE IF NOT EXISTS evidence_vault (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    evidence_id TEXT NOT NULL UNIQUE,
+    case_id TEXT,
+    actor_id TEXT,
+    source TEXT NOT NULL,
+    collector TEXT NOT NULL,
+    collector_version TEXT DEFAULT '1.0',
+    collected_at TEXT DEFAULT (datetime('now')),
+    observed_at TEXT,
+    content_type TEXT DEFAULT 'JSON',
+    classification TEXT DEFAULT 'RESTRICTED',
+    sha256 TEXT NOT NULL,
+    raw_reference TEXT,
+    normalized_data_json TEXT DEFAULT '{}',
+    provenance_json TEXT DEFAULT '{}',
+    analyst TEXT DEFAULT 'system',
+    is_sealed INTEGER DEFAULT 0,
+    tags_json TEXT DEFAULT '[]'
+  );
+
+  -- ═══ AUDIT LOGS (Every important system action) ════════════════════════════
+  CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audit_id TEXT NOT NULL UNIQUE,
+    user_id TEXT DEFAULT 'system',
+    username TEXT DEFAULT 'system',
+    role TEXT DEFAULT 'system',
+    action TEXT NOT NULL,
+    case_id TEXT,
+    object_id TEXT,
+    object_type TEXT,
+    ip_address TEXT DEFAULT '127.0.0.1',
+    session_id TEXT,
+    result TEXT DEFAULT 'SUCCESS',
+    details_json TEXT DEFAULT '{}',
+    timestamp TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ BLOCKCHAIN GRAPH EDGES (Wallet → TX → Wallet relationships) ═════════════
+  CREATE TABLE IF NOT EXISTS blockchain_graph_edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    edge_id TEXT NOT NULL UNIQUE,
+    from_address TEXT NOT NULL,
+    to_address TEXT NOT NULL,
+    tx_hash TEXT,
+    chain TEXT DEFAULT 'BTC',
+    value_native REAL DEFAULT 0.0,
+    value_usd REAL DEFAULT 0.0,
+    block_height INTEGER,
+    confirmed_at TEXT,
+    source TEXT DEFAULT 'BlockCypher',
+    actor_id TEXT,
+    case_id TEXT,
+    relationship_type TEXT DEFAULT 'SENT_TO',
+    collected_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- ═══ INDEXES — New Tables ═════════════════════════════════════════════════
+  CREATE INDEX IF NOT EXISTS idx_pgp_fingerprint ON pgp_keys(fingerprint);
+  CREATE INDEX IF NOT EXISTS idx_pgp_actor ON pgp_keys(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_ct_domain ON cert_transparency_records(domain);
+  CREATE INDEX IF NOT EXISTS idx_ct_fingerprint ON cert_transparency_records(fingerprint);
+  CREATE INDEX IF NOT EXISTS idx_infra_domain ON infrastructure_candidates(domain);
+  CREATE INDEX IF NOT EXISTS idx_infra_ip ON infrastructure_candidates(ip_address);
+  CREATE INDEX IF NOT EXISTS idx_infra_actor ON infrastructure_candidates(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_behavioral_actor ON behavioral_profiles(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_corpus_actor ON stylometry_corpus(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_corpus_hash ON stylometry_corpus(text_hash);
+  CREATE INDEX IF NOT EXISTS idx_vault_case ON evidence_vault(case_id);
+  CREATE INDEX IF NOT EXISTS idx_vault_actor ON evidence_vault(actor_id);
+  CREATE INDEX IF NOT EXISTS idx_vault_sha256 ON evidence_vault(sha256);
+  CREATE INDEX IF NOT EXISTS idx_audit_case ON audit_logs(case_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
+  CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_bc_edges_from ON blockchain_graph_edges(from_address);
+  CREATE INDEX IF NOT EXISTS idx_bc_edges_to ON blockchain_graph_edges(to_address);
+  CREATE INDEX IF NOT EXISTS idx_bc_edges_actor ON blockchain_graph_edges(actor_id);
 `;
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
@@ -961,6 +1146,15 @@ function connectDB() {
     addCol('cases', 'root_cause', "TEXT DEFAULT ''");
     addCol('cases', 'lessons_learned', "TEXT DEFAULT ''");
     addCol('cases', 'playbook_actions_json', "TEXT DEFAULT '[]'");
+
+    // Dynamic migrations for new intelligence tables (safe — ignores if already exists)
+    addCol('reports', 'evidence_ids_json', "TEXT DEFAULT '[]'");
+    addCol('reports', 'report_hash_sha256', "TEXT DEFAULT ''");
+    addCol('reports', 'model_versions_json', "TEXT DEFAULT '{}'");
+    addCol('threat_actors', 'behavioral_profile_id', "TEXT DEFAULT ''");
+    addCol('threat_actors', 'evidence_count', 'INTEGER DEFAULT 0');
+    addCol('threat_actors', 'pgp_keys_json', "TEXT DEFAULT '[]'");
+    addCol('threat_actors', 'infrastructure_ids_json', "TEXT DEFAULT '[]'");
 
     // Seed data if empty
     seedInitialData();

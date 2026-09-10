@@ -13,7 +13,11 @@ const dotenv = require('dotenv');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const logger = require('./utils/logger');
-const { connectDB } = require('./config/database'); // SQLite — no server needed
+const { connectDB } = require('./config/database');
+
+// ── New real intelligence services (lazy-load to avoid circular deps) ──────────
+let evidenceVaultService = null;
+try { evidenceVaultService = require('./services/evidenceVaultService'); } catch (e) { logger.warn('[Boot] evidenceVaultService not loaded:', e.message); }
 
 // Load environment variables
 dotenv.config();
@@ -100,13 +104,34 @@ app.get('/api/test', (req, res) => {
 // API info
 app.get('/api', (req, res) => {
   res.json({
-    name: 'TOR Sentinel 2.0 API',
-    version: '2.0.0',
+    name: 'TOR-AEGIS API',
+    version: '2.1.0',
     description: 'Dark Web Threat Actor De-Anonymization Platform — NTRO PS-26151',
     status: 'operational',
-    modules: ['Hidden Service Scanner', 'Actor Identity Graph', 'Stylometry Engine', 'Dossier Export', 'Threat Intel Map', 'Timeline Query Engine', 'Behavioral Profiler', 'Blockchain Tracer', 'Autonomous Crawler', 'Evidence Chain Builder'],
-    endpoints: { darkweb: '/api/darkweb', nextlevel: '/api/v2' },
-    documentation: '/api/darkweb'
+    modules: [
+      'Hidden Service Scanner', 'Actor Identity Graph', 'Stylometry Engine (Real NLP)',
+      'Evidence Vault (SHA-256)', 'CT Log Intelligence (crt.sh)',
+      'PGP Key Analysis (keys.openpgp.org)', 'Infrastructure Intelligence',
+      'Blockchain Graph Traversal', 'Behavioral Profiler', 'Audit Trail',
+      'Case Management', 'AEGIS Attribution Engine'
+    ],
+    endpoints: {
+      darkweb: '/api/darkweb',
+      nextlevel: '/api/v2',
+      cases: '/api/cases',
+      aegis: '/api/aegis',
+      tor: '/api/tor',
+      soc: '/api/soc',
+      // New real intelligence endpoints
+      ctLogs: '/api/v2/ct-logs',
+      pgp: '/api/v2/pgp',
+      stylometry: '/api/v2/stylometry',
+      evidenceVault: '/api/v2/evidence-vault',
+      auditTrail: '/api/v2/audit-trail',
+      infrastructure: '/api/v2/infrastructure',
+      blockchainGraph: '/api/v2/blockchain/graph',
+      dashboardKPIs: '/api/tor/dashboard-kpis'
+    }
   });
 });
 
@@ -195,10 +220,32 @@ const startServer = async () => {
 
       // Launch near-real-time Onionoo public Tor network ingestion
       onionooCollector.startAutoCollection();
-    });
-  };
 
-  // Handle server errors — fix: use mutable currentPort so each retry increments
+      // Log first audit entry
+      if (evidenceVaultService) {
+        try {
+          evidenceVaultService.writeAuditLog({
+            action: 'SERVER_START',
+            objectType: 'server',
+            objectId: 'aegis-backend',
+            result: 'SUCCESS',
+            details: { port, version: '2.1.0', modules: 'all' }
+          });
+        } catch { /* non-fatal */ }
+      }
+
+      console.log('\n📋 New Intelligence Endpoints:');
+      console.log(`  GET  /api/tor/dashboard-kpis  — All dashboard KPIs (real DB)`);
+      console.log(`  GET  /api/v2/ct-logs/query?domain=  — CT log lookup (crt.sh)`);
+      console.log(`  GET  /api/v2/pgp/lookup/:fp  — PGP key (keys.openpgp.org)`);
+      console.log(`  POST /api/v2/stylometry/compare  — Real NLP similarity`);
+      console.log(`  GET  /api/v2/evidence-vault/stats  — Evidence vault`);
+      console.log(`  POST /api/v2/blockchain/graph/build  — Wallet graph`);
+      console.log(`  GET  /api/v2/audit-trail  — Full audit trail`);
+    }); // end httpServer.listen callback
+  }; // end tryListen
+
+  // Handle server errors
   httpServer.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
       retries++;

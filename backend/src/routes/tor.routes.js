@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const torController = require('../controllers/tor.controller');
 
-// ─── Public Tor Network Intelligence & Metrics ────────────────────────────────
+// ─── Unified Dashboard KPIs (all numbers from DB — no hardcoded values) ────────
+router.get('/dashboard-kpis', torController.getDashboardKPIs);
+
+// ─── Public Tor Network Intelligence & Metrics ─────────────────────────────────
 router.get('/overview', torController.getNetworkOverview);
 router.get('/metrics', torController.getLiveMetrics);
 router.get('/onionoo/live', torController.getLiveOnionoo);

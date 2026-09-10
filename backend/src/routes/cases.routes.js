@@ -1,5 +1,5 @@
 /**
- * cases.routes.js — TOR Sentinel 2.0
+ * cases.routes.js — TOR-AEGIS
  * NTRO PS-26151 — Case Management, Correlation, and NTRO Report API
  */
 
@@ -12,6 +12,8 @@ const {
   updateIncidentPhase, executePlaybookAction,
   getEvidenceForCase, addEvidenceToCase, getCustodyForCase
 } = require('../services/caseService');
+
+const { getCaseEvidence, getCaseAuditTrail, sealEvidence, verifyEvidence } = require('../services/evidenceVaultService');
 
 const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -285,6 +287,48 @@ router.post('/:caseId/report', asyncHandler(async (req, res) => {
   });
   if (!report) return res.status(404).json({ success: false, message: 'Case not found' });
   res.status(201).json({ success: true, data: report });
+}));
+
+// ═══════════════════════════════════════════════════════════════════
+// EVIDENCE VAULT (real SHA-256 provenance)
+// ═══════════════════════════════════════════════════════════════════
+
+// GET /api/cases/:caseId/vault — Real evidence vault items for a case
+router.get('/:caseId/vault', asyncHandler(async (req, res) => {
+  const { limit = 100, offset = 0 } = req.query;
+  const items = getCaseEvidence(req.params.caseId, { limit: parseInt(limit), offset: parseInt(offset) });
+  res.json({ success: true, count: items.length, data: items });
+}));
+
+// POST /api/cases/:caseId/vault — Seal new evidence into the vault
+router.post('/:caseId/vault', asyncHandler(async (req, res) => {
+  const { artifact, source, collector, classification, tags } = req.body;
+  if (!artifact) return res.status(400).json({ success: false, message: 'artifact required' });
+  const result = sealEvidence(artifact, {
+    source: source || 'manual',
+    collector: collector || 'analyst',
+    caseId: req.params.caseId,
+    classification: classification || 'RESTRICTED',
+    tags: tags || []
+  });
+  res.status(201).json({ success: result.success, data: result });
+}));
+
+// GET /api/cases/:caseId/vault/verify/:evidenceId — Verify evidence integrity
+router.get('/:caseId/vault/verify/:evidenceId', asyncHandler(async (req, res) => {
+  const result = verifyEvidence(req.params.evidenceId);
+  res.json({ success: true, data: result });
+}));
+
+// ═══════════════════════════════════════════════════════════════════
+// AUDIT TRAIL (real database-backed)
+// ═══════════════════════════════════════════════════════════════════
+
+// GET /api/cases/:caseId/audit — Full audit trail for a case
+router.get('/:caseId/audit', asyncHandler(async (req, res) => {
+  const { limit = 100 } = req.query;
+  const trail = getCaseAuditTrail(req.params.caseId, parseInt(limit));
+  res.json({ success: true, count: trail.length, data: trail });
 }));
 
 module.exports = router;
